@@ -146,6 +146,24 @@ module Pod
           @podfile_pathname.exist?.should.be.true?
           @podfile_pathname.empty?.should.be.false?
         end
+
+        it "generates the Podfile including the default subspecs" do
+          pod_args = PODS.keys.map { |key| "#{key}:#{PODS[key]}" }
+          podfile = Command.parse(["podfile", *pod_args, "--#{CocoapodsPodfileGenerator::INCLUDE_DEFAULT_SUBSPECS_FLAG_NAME}", "--#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}=./spec/Pods.txt", "--#{CocoapodsPodfileGenerator::OUTPUT_OPTION_NAME}=#{@podfile_pathname}"])
+          podfile.validate!
+          podfile.run
+          @podfile_pathname.exist?.should.be.true?
+          @podfile_pathname.empty?.should.be.false?
+        end
+
+        it "generates the Podfile including all the subspecs" do
+          pod_args = PODS.keys.map { |key| "#{key}:#{PODS[key]}" }
+          podfile = Command.parse(["podfile", "Firebase:10.0.0", "--#{CocoapodsPodfileGenerator::INCLUDE_ALL_SUBSPECS_FLAG_NAME}", "--#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}=./spec/Pods.txt", "--#{CocoapodsPodfileGenerator::OUTPUT_OPTION_NAME}=#{@podfile_pathname}"])
+          podfile.validate!
+          podfile.run
+          @podfile_pathname.exist?.should.be.true?
+          @podfile_pathname.empty?.should.be.false?
+        end
       end
     end
   end

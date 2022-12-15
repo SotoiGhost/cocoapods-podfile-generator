@@ -33,7 +33,8 @@ module Pod
         [
           ["--#{CocoapodsPodfileGenerator::REGEX_FLAG_NAME}", "Interpret the pod names as a regular expression"],
           # ["--#{CocoapodsPodfileGenerator::INCLUDE_DEPENDENCIES_FLAG_NAME}", "Include each pod dependencies in the Podfile."],
-          # ["--#{CocoapodsPodfileGenerator::IGNORE_DEFAULT_SUBSPECS_FLAG_NAME}", "Ignore the `default_subspecs` value of specs and include all the subspecs in the Podfile."],
+          ["--#{CocoapodsPodfileGenerator::INCLUDE_DEFAULT_SUBSPECS_FLAG_NAME}", "Include the `default_subspecs` value in the Podfile if any."],
+          ["--#{CocoapodsPodfileGenerator::INCLUDE_ALL_SUBSPECS_FLAG_NAME}", "Include all the subspecs in the Podfile if any."],
           ["--#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}", "A text file containing the pods to add to the Podfile. Each row within the file should have the format: <POD_NAME>,<POD_VERSION>. Example: --#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}=path/to/file.txt"],
           ["--#{CocoapodsPodfileGenerator::PLATFORMS_OPTION_NAME}", "Platforms to consider. If not set, all platforms supported by the pods will be used. A target will be generated per platform. Example: --#{CocoapodsPodfileGenerator::PLATFORMS_OPTION_NAME}=ios,tvos"],
           ["--#{CocoapodsPodfileGenerator::OUTPUT_OPTION_NAME}", "Path where the Podfile will be saved. If not set, the Podfile will be saved where the command is running. Example: --#{CocoapodsPodfileGenerator::OUTPUT_OPTION_NAME}=path/to/save/Podfile_name"],
@@ -46,7 +47,8 @@ module Pod
         @pods_args = argv.arguments!
         @use_regex = argv.flag?(CocoapodsPodfileGenerator::REGEX_FLAG_NAME)
         # @include_dependencies = argv.flag?(CocoapodsPodfileGenerator::INCLUDE_DEPENDENCIES_FLAG_NAME)
-        # @ignore_default_subspecs = argv.flag?(CocoapodsPodfileGenerator::IGNORE_DEFAULT_SUBSPECS_FLAG_NAME)
+        @include_default_subspecs = argv.flag?(CocoapodsPodfileGenerator::INCLUDE_DEFAULT_SUBSPECS_FLAG_NAME)
+        @include_all_subspecs = argv.flag?(CocoapodsPodfileGenerator::INCLUDE_ALL_SUBSPECS_FLAG_NAME)
         @pods_textfile = argv.option(CocoapodsPodfileGenerator::FILE_OPTION_NAME)
         @platforms = argv.option(CocoapodsPodfileGenerator::PLATFORMS_OPTION_NAME, "").split(",")
         @podfile_output_path = argv.option(CocoapodsPodfileGenerator::OUTPUT_OPTION_NAME, "#{Dir.pwd}/Podfile")
@@ -119,7 +121,7 @@ module Pod
         spec = Pod::Specification.from_file(spec_path)
         
         # Remove the default subspecs value to consider all exisiting subspecs within a spec
-        # spec.default_subspecs = [] if @ignore_default_subspecs
+        spec.default_subspecs = [] if @include_all_subspecs || spec.default_subspecs == :none
         spec
       end
 
@@ -192,6 +194,24 @@ module Pod
         specs_by_platform = {}
         @platforms.each do |platform|
           specs_by_platform[platform.name] = specs.select { |spec| spec.supported_on_platform?(platform) }
+          
+          next if !@include_all_subspecs && !@include_default_subspecs
+
+          # Include the subspecs of all the specs if any
+          if @include_all_subspecs
+            specs.each do |spec| 
+              specs_by_platform[platform.name] += spec.recursive_subspecs.reject(&:non_library_specification?).select { |subspec| subspec.supported_on_platform?(platform) }
+            end
+          elsif @include_default_subspecs
+            specs.each do |spec|
+              spec.default_subspecs.each do |subspec_name|
+                specs_by_platform[platform.name].push(spec.subspec_by_name("#{spec.name}/#{subspec_name}"))
+              end
+            end
+          end
+
+          # Let's remove any duplicate specs
+          specs_by_platform[platform.name].uniq!(&:name)
         end
         specs_by_platform
       end
