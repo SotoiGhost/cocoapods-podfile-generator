@@ -1,5 +1,5 @@
 module CocoapodsPodfileGenerator
-  VERSION = "0.2.0"
+  VERSION = "0.3.0"
   SUMMARY = ""
   DESCRIPTION = <<-DESC
 
@@ -10,7 +10,7 @@ module CocoapodsPodfileGenerator
 
   # CLAide Flags
   REGEX_FLAG_NAME = "regex"
-  # INCLUDE_DEPENDENCIES_FLAG_NAME = "include-dependencies"
+  INCLUDE_DEPENDENCIES_FLAG_NAME = "include-dependencies"
   INCLUDE_DEFAULT_SUBSPECS_FLAG_NAME = "include-default-subspecs"
   INCLUDE_ALL_SUBSPECS_FLAG_NAME = "include-all-subspecs"
   

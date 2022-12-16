@@ -32,8 +32,8 @@ module Pod
       def self.options
         [
           ["--#{CocoapodsPodfileGenerator::REGEX_FLAG_NAME}", "Interpret the pod names as a regular expression"],
-          # ["--#{CocoapodsPodfileGenerator::INCLUDE_DEPENDENCIES_FLAG_NAME}", "Include each pod dependencies in the Podfile."],
-          ["--#{CocoapodsPodfileGenerator::INCLUDE_DEFAULT_SUBSPECS_FLAG_NAME}", "Include the `default_subspecs` value in the Podfile if any."],
+          ["--#{CocoapodsPodfileGenerator::INCLUDE_DEPENDENCIES_FLAG_NAME}", "Include each pod's dependencies name in the Podfile."],
+          ["--#{CocoapodsPodfileGenerator::INCLUDE_DEFAULT_SUBSPECS_FLAG_NAME}", "Include the `default_subspecs` values in the Podfile if any."],
           ["--#{CocoapodsPodfileGenerator::INCLUDE_ALL_SUBSPECS_FLAG_NAME}", "Include all the subspecs in the Podfile if any."],
           ["--#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}", "A text file containing the pods to add to the Podfile. Each row within the file should have the format: <POD_NAME>,<POD_VERSION>. Example: --#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}=path/to/file.txt"],
           ["--#{CocoapodsPodfileGenerator::PLATFORMS_OPTION_NAME}", "Platforms to consider. If not set, all platforms supported by the pods will be used. A target will be generated per platform. Example: --#{CocoapodsPodfileGenerator::PLATFORMS_OPTION_NAME}=ios,tvos"],
@@ -46,7 +46,7 @@ module Pod
         @pods = {}
         @pods_args = argv.arguments!
         @use_regex = argv.flag?(CocoapodsPodfileGenerator::REGEX_FLAG_NAME)
-        # @include_dependencies = argv.flag?(CocoapodsPodfileGenerator::INCLUDE_DEPENDENCIES_FLAG_NAME)
+        @include_dependencies = argv.flag?(CocoapodsPodfileGenerator::INCLUDE_DEPENDENCIES_FLAG_NAME)
         @include_default_subspecs = argv.flag?(CocoapodsPodfileGenerator::INCLUDE_DEFAULT_SUBSPECS_FLAG_NAME)
         @include_all_subspecs = argv.flag?(CocoapodsPodfileGenerator::INCLUDE_ALL_SUBSPECS_FLAG_NAME)
         @pods_textfile = argv.option(CocoapodsPodfileGenerator::FILE_OPTION_NAME)
@@ -99,13 +99,19 @@ module Pod
         # As we already validate the arguments provided, it's safe to get the podspecs.
         specs = @pods.keys.map { |pod_name| get_specification(pod_name.to_s, @pods[pod_name]) }
         resolve_platforms_if_needed(specs)
-        specs_by_platform = get_specs_by_platform(specs)
+        
+        if @include_dependencies
+          specs_by_platform = resolve_dependencies(specs)
+        else
+          specs_by_platform = get_specs_by_platform(specs)
+        end
+
         generate_podfile_file(specs_by_platform, @podfile_output_path)
       end
 
       private
 
-      # Parse a string line to a hash
+      # Parse a string line to a hash.
       def parse_line(line)
         line.strip!
         raise PodfileGeneratorInformative, line if not line =~ /^.+:.+$/
@@ -125,62 +131,6 @@ module Pod
         spec
       end
 
-      # Analyze and resolve all the specs needed for this spec
-      # def resolve_dependencies_for_spec(spec)
-      #   # Get all the subspecs of the spec
-      #   specs_by_platform = {}
-      #   @platforms.each do |platform|
-      #     specs_by_platform[platform.name] = spec.recursive_subspecs.select { |s| s.supported_on_platform?(platform) }
-      #   end
-
-      #   podfile = podfile(spec, specs_by_platform)
-      #   resolved_specs = Pod::Installer::Analyzer.new(config.sandbox, podfile).analyze.specs_by_target
-
-      #   @platforms.each do |platform|
-      #     key = resolved_specs.keys.find { |key| key.name.end_with?(platform.name.to_s) }
-      #     next if key.nil?
-
-      #     if @include_dependencies
-      #       specs_by_platform[platform.name] = resolved_specs[key]
-      #     else
-      #       pod_names = [spec.name]
-      #       pod_names += spec.dependencies(platform).map(&:name)
-      #       pod_names += specs_by_platform[platform.name].map(&:name)
-      #       pod_names += specs_by_platform[platform.name].map { |spec| spec.dependencies(platform).map(&:name) }.flatten
-      #       pod_names = pod_names.uniq
-
-      #       specs_by_platform[platform.name] = resolved_specs[key].select { |spec| pod_names.include?(spec.name) }
-      #     end
-      #   end
-
-      #   specs_by_platform
-      # end
-
-      # def podfile(spec, specs_by_platform)
-      #   ps = @platforms
-      #   pod_name = spec.name
-      #   pod_version = spec.version.to_s
-        
-      #   Pod::Podfile.new do
-      #     install! 'cocoapods', integrate_targets: false
-      #     use_frameworks!
-
-      #     ps.each do |p|
-      #       next if not spec.supported_on_platform?(p)
-            
-      #       platform_version = [Pod::Version.new(spec.deployment_target(p.name) || "0")]
-      #       platform_version += specs_by_platform[p.name].map { |spec| Pod::Version.new(spec.deployment_target(p.name) || "0") }
-      #       platform_version = platform_version.max
-            
-      #       target "#{pod_name}_#{p.name}" do
-      #         platform p.name, platform_version
-      #         pod pod_name, pod_version
-      #         specs_by_platform[p.name].each { |spec| pod spec.name, spec.version } if not specs_by_platform[p.name].empty?
-      #       end
-      #     end
-      #   end
-      # end
-
       def resolve_platforms_if_needed(specs)
         # Get all the supported platforms without the OS version if no platforms are specified
         @platforms = specs
@@ -188,6 +138,29 @@ module Pod
           .flatten
           .uniq if @platforms.empty?
         @platforms.map! { |platform| Pod::Platform.new(platform) }
+      end
+
+      # Analyze and resolve all the specs needed for this spec.
+      def resolve_dependencies(specs)
+        specs_by_platform = get_specs_by_platform(specs)
+
+        podfile = podfile(specs_by_platform)
+        resolved_specs = Pod::Installer::Analyzer.new(config.sandbox, podfile).analyze.specs_by_target
+
+        # After an analyze, we get every specs needed to make this Podfile work,
+        # Let's filter the specs according to the user needs.
+        @platforms.each do |platform|
+          key = resolved_specs.keys.find { |key| key.name.end_with?(platform.name.to_s) }
+          next if key.nil?
+
+          dependecies_names = specs_by_platform[platform.name].map { |spec| spec.dependencies(platform).map(&:name) }.flatten.uniq
+          specs_by_platform[platform.name] += resolved_specs[key].select { |spec| dependecies_names.include?(spec.name) }
+
+          # Let's remove any duplicated specs
+          specs_by_platform[platform.name].uniq!(&:name)
+        end
+
+        specs_by_platform
       end
 
       def get_specs_by_platform(specs)
@@ -210,10 +183,30 @@ module Pod
             end
           end
 
-          # Let's remove any duplicate specs
+          # Let's remove any duplicated specs
           specs_by_platform[platform.name].uniq!(&:name)
         end
         specs_by_platform
+      end
+
+      def podfile(specs_by_platform)
+        ps = @platforms
+        
+        Pod::Podfile.new do
+          install! 'cocoapods', integrate_targets: false
+          use_frameworks!
+
+          ps.each do |p|
+            next if specs_by_platform[p.name].empty?
+            
+            platform_version = specs_by_platform[p.name].map { |spec| Pod::Version.new(spec.deployment_target(p.name) || "0") }.max
+            
+            target "Target_for_#{p.name}" do
+              platform p.name, platform_version
+              specs_by_platform[p.name].each { |spec| pod spec.name, spec.version }
+            end
+          end
+        end
       end
 
       def generate_podfile_file(specs_by_platform, path)
