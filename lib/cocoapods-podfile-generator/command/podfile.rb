@@ -27,7 +27,7 @@ module Pod
       self.description = CocoapodsPodfileGenerator::DESCRIPTION
 
       self.arguments = [
-        CLAide::Argument.new(CocoapodsPodfileGenerator::POD_ARGUMENT_NAME, required: false, repeatable: true)
+        CLAide::Argument.new(CocoapodsPodfileGenerator::POD_ARGUMENT_NAME, false, true)
       ]
 
       def self.options
