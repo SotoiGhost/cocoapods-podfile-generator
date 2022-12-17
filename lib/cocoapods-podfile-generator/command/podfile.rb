@@ -59,6 +59,7 @@ module Pod
       end
 
       def validate!
+        super
         help! "You must give a Pod argument or pass a path to a text file to parse the Pods." if @pods_args.empty? && @pods_textfile.nil?
 
         # Parse each argument passed if any
@@ -94,8 +95,6 @@ module Pod
               "Original error message: #{e.message}"
           end
         end
-
-        super
       end
 
       def run
