@@ -1,5 +1,5 @@
 module CocoapodsPodfileGenerator
-  VERSION = "0.3.0"
+  VERSION = "0.4.0"
   SUMMARY = ""
   DESCRIPTION = <<-DESC
 
@@ -13,6 +13,7 @@ module CocoapodsPodfileGenerator
   INCLUDE_DEPENDENCIES_FLAG_NAME = "include-dependencies"
   INCLUDE_DEFAULT_SUBSPECS_FLAG_NAME = "include-default-subspecs"
   INCLUDE_ALL_SUBSPECS_FLAG_NAME = "include-all-subspecs"
+  INCLUDE_ANALYZE = "include-analyze"
   
   # CLAide Options
   FILE_OPTION_NAME = "file"

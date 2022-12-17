@@ -35,6 +35,7 @@ module Pod
           ["--#{CocoapodsPodfileGenerator::INCLUDE_DEPENDENCIES_FLAG_NAME}", "Include each pod's dependencies name in the Podfile."],
           ["--#{CocoapodsPodfileGenerator::INCLUDE_DEFAULT_SUBSPECS_FLAG_NAME}", "Include the `default_subspecs` values in the Podfile if any."],
           ["--#{CocoapodsPodfileGenerator::INCLUDE_ALL_SUBSPECS_FLAG_NAME}", "Include all the subspecs in the Podfile if any."],
+          ["--#{CocoapodsPodfileGenerator::INCLUDE_ANALYZE}", "Let cocoapods to resolve the dependencies needed for the pods provided and include them in the Podfile."],
           ["--#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}", "A text file containing the pods to add to the Podfile. Each row within the file should have the format: <POD_NAME>,<POD_VERSION>. Example: --#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}=path/to/file.txt"],
           ["--#{CocoapodsPodfileGenerator::PLATFORMS_OPTION_NAME}", "Platforms to consider. If not set, all platforms supported by the pods will be used. A target will be generated per platform. Example: --#{CocoapodsPodfileGenerator::PLATFORMS_OPTION_NAME}=ios,tvos"],
           ["--#{CocoapodsPodfileGenerator::OUTPUT_OPTION_NAME}", "Path where the Podfile will be saved. If not set, the Podfile will be saved where the command is running. Example: --#{CocoapodsPodfileGenerator::OUTPUT_OPTION_NAME}=path/to/save/Podfile_name"],
@@ -49,6 +50,7 @@ module Pod
         @include_dependencies = argv.flag?(CocoapodsPodfileGenerator::INCLUDE_DEPENDENCIES_FLAG_NAME)
         @include_default_subspecs = argv.flag?(CocoapodsPodfileGenerator::INCLUDE_DEFAULT_SUBSPECS_FLAG_NAME)
         @include_all_subspecs = argv.flag?(CocoapodsPodfileGenerator::INCLUDE_ALL_SUBSPECS_FLAG_NAME)
+        @include_analyze = argv.flag?(CocoapodsPodfileGenerator::INCLUDE_ANALYZE)
         @pods_textfile = argv.option(CocoapodsPodfileGenerator::FILE_OPTION_NAME)
         @platforms = argv.option(CocoapodsPodfileGenerator::PLATFORMS_OPTION_NAME, "").split(",")
         @podfile_output_path = argv.option(CocoapodsPodfileGenerator::OUTPUT_OPTION_NAME, "#{Dir.pwd}/Podfile")
@@ -100,7 +102,7 @@ module Pod
         specs = @pods.keys.map { |pod_name| get_specification(pod_name.to_s, @pods[pod_name]) }
         resolve_platforms_if_needed(specs)
         
-        if @include_dependencies
+        if @include_dependencies || @include_analyze
           specs_by_platform = resolve_dependencies(specs)
         else
           specs_by_platform = get_specs_by_platform(specs)
@@ -153,11 +155,15 @@ module Pod
           key = resolved_specs.keys.find { |key| key.name.end_with?(platform.name.to_s) }
           next if key.nil?
 
-          dependecies_names = specs_by_platform[platform.name].map { |spec| spec.dependencies(platform).map(&:name) }.flatten.uniq
-          specs_by_platform[platform.name] += resolved_specs[key].select { |spec| dependecies_names.include?(spec.name) }
+          if @include_analyze
+            specs_by_platform[platform.name] = resolved_specs[key]
+          else
+            dependecies_names = specs_by_platform[platform.name].map { |spec| spec.dependencies(platform).map(&:name) }.flatten.uniq
+            specs_by_platform[platform.name] += resolved_specs[key].select { |spec| dependecies_names.include?(spec.name) }
 
-          # Let's remove any duplicated specs
-          specs_by_platform[platform.name].uniq!(&:name)
+            # Let's remove any duplicated specs
+            specs_by_platform[platform.name].uniq!(&:name)
+          end
         end
 
         specs_by_platform

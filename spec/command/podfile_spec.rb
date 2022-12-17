@@ -227,6 +227,33 @@ module Pod
           @podfile_pathname.exist?.should.be.true?
           @podfile_pathname.empty?.should.be.false?
         end
+
+        it "generates the Podfile including the dependencies got by the analysis made by cocoapods" do
+          pod_args = PODS.keys.map { |key| "#{key}:#{PODS[key]}" }
+          podfile = Command.parse([
+            "podfile",
+            *pod_args,
+            "--#{CocoapodsPodfileGenerator::INCLUDE_ANALYZE}",
+            "--#{CocoapodsPodfileGenerator::OUTPUT_OPTION_NAME}=#{@podfile_pathname}"])
+          podfile.validate!
+          podfile.run
+          @podfile_pathname.exist?.should.be.true?
+          @podfile_pathname.empty?.should.be.false?
+        end
+
+        it "generates the Podfile including all the subspecs and the dependencies got by the analysis made by cocoapods" do
+          pod_args = PODS.keys.map { |key| "#{key}:#{PODS[key]}" }
+          podfile = Command.parse([
+            "podfile",
+            *pod_args,
+            "--#{CocoapodsPodfileGenerator::INCLUDE_ALL_SUBSPECS_FLAG_NAME}",
+            "--#{CocoapodsPodfileGenerator::INCLUDE_ANALYZE}",
+            "--#{CocoapodsPodfileGenerator::OUTPUT_OPTION_NAME}=#{@podfile_pathname}"])
+          podfile.validate!
+          podfile.run
+          @podfile_pathname.exist?.should.be.true?
+          @podfile_pathname.empty?.should.be.false?
+        end
       end
     end
   end
