@@ -1,0 +1,8 @@
+{
+    "FBSDKLoginKit": {
+        "version": "15.0.0"
+    },
+    "FBSDKShareKit": {
+        "version": "15.0.0"
+    }
+}

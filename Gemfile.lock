@@ -1,7 +1,8 @@
 PATH
   remote: .
   specs:
-    cocoapods-podfile-generator (0.4.0)
+    cocoapods-podfile-generator (0.5.0)
+      json (~> 2.6)
 
 GEM
   remote: https://rubygems.org/
