@@ -10,7 +10,7 @@ Gem::Specification.new do |spec|
   spec.email         = ['israel.spgh@gmail.com']
   spec.summary       = CocoapodsPodfileGenerator::SUMMARY
   spec.description   = CocoapodsPodfileGenerator::DESCRIPTION
-  spec.homepage      = 'https://github.com/EXAMPLE/cocoapods-podfile-generator'
+  spec.homepage      = 'https://github.com/SotoiGhost/cocoapods-podfile-generator'
   spec.license       = 'MIT'
 
   spec.files         = `git ls-files`.split($/)
