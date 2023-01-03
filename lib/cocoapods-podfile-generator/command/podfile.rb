@@ -36,7 +36,7 @@ module Pod
           ["--#{CocoapodsPodfileGenerator::INCLUDE_DEPENDENCIES_FLAG_NAME}", "Include each pod's dependencies name in the Podfile."],
           ["--#{CocoapodsPodfileGenerator::INCLUDE_DEFAULT_SUBSPECS_FLAG_NAME}", "Include the `default_subspecs` values in the Podfile if any."],
           ["--#{CocoapodsPodfileGenerator::INCLUDE_ALL_SUBSPECS_FLAG_NAME}", "Include all the subspecs in the Podfile if any."],
-          ["--#{CocoapodsPodfileGenerator::INCLUDE_ANALYZE}", "Let cocoapods to resolve the dependencies needed for the pods provided and include them in the Podfile."],
+          ["--#{CocoapodsPodfileGenerator::INCLUDE_ANALYZE_FLAG_NAME}", "Let cocoapods resolve the necessary dependencies for the provided pods and include them in the Podfile."],
           ["--#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}", "A text file containing the pods to add to the Podfile. Each row within the file should have the format: <POD_NAME>:<POD_VERSION>. Example: --#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}=path/to/file.txt"],
           ["--#{CocoapodsPodfileGenerator::PLATFORMS_OPTION_NAME}", "Platforms to consider. If not set, all platforms supported by the pods will be used. A target will be generated per platform. Example: --#{CocoapodsPodfileGenerator::PLATFORMS_OPTION_NAME}=ios,tvos"],
           ["--#{CocoapodsPodfileGenerator::OUTPUT_OPTION_NAME}", "Path where the Podfile will be saved. If not set, the Podfile will be saved where the command is running. Example: --#{CocoapodsPodfileGenerator::OUTPUT_OPTION_NAME}=path/to/save/Podfile_name"],
@@ -51,8 +51,8 @@ module Pod
         @include_dependencies = argv.flag?(CocoapodsPodfileGenerator::INCLUDE_DEPENDENCIES_FLAG_NAME)
         @include_default_subspecs = argv.flag?(CocoapodsPodfileGenerator::INCLUDE_DEFAULT_SUBSPECS_FLAG_NAME)
         @include_all_subspecs = argv.flag?(CocoapodsPodfileGenerator::INCLUDE_ALL_SUBSPECS_FLAG_NAME)
-        @include_analyze = argv.flag?(CocoapodsPodfileGenerator::INCLUDE_ANALYZE)
-        @pods_textfile = argv.option(CocoapodsPodfileGenerator::FILE_OPTION_NAME)
+        @include_analyze = argv.flag?(CocoapodsPodfileGenerator::INCLUDE_ANALYZE_FLAG_NAME)
+        @pods_text_file = argv.option(CocoapodsPodfileGenerator::FILE_OPTION_NAME)
         @platforms = argv.option(CocoapodsPodfileGenerator::PLATFORMS_OPTION_NAME, "").split(",")
         @podfile_output_path = argv.option(CocoapodsPodfileGenerator::OUTPUT_OPTION_NAME, "#{Dir.pwd}/Podfile")
         super
@@ -60,8 +60,8 @@ module Pod
 
       def validate!
         super
-        help! "You must give a Pod argument or pass a path to a text file to parse the Pods." if @pods_args.empty? && @pods_textfile.nil?
-
+        help! "You must give a Pod argument or pass a path to a text file to parse the Pods." if @pods_args.empty? && @pods_text_file.nil?
+        
         # Parse each argument passed if any
         begin
           @pods_args.each { |pod| @pods.merge!(parse_line(pod)) } if not @pods_args.empty?
@@ -70,14 +70,15 @@ module Pod
         end
         
         # Parse each line of the text file if there's a file
-        if @pods_textfile
-          pods_textfile = Pathname.new(@pods_textfile)
-          help! "The file was not found at #{@pods_textfile} to fetch the pods." if not pods_textfile.exist?
+        if @pods_text_file
+          pods_text_file = Pathname.new(@pods_text_file)
+          help! "The file was not found at #{@pods_text_file} to parse the pod lines." if not pods_text_file.exist?
+          help! "The file at #{@pods_text_file} should have a .txt extension." if not pods_text_file.extname == ".txt"
 
           begin
-            pods_textfile.each_line { |line| @pods.merge!(parse_line(line)) }
+            pods_text_file.each_line { |line| @pods.merge!(parse_line(line)) }
           rescue PodfileGeneratorInformative => e
-            help! "There was a problem parsing the line #{e.message} at file #{@pods_textfile}."
+            help! "There was a problem parsing the line #{e.message} at file #{@pods_text_file}."
           end
         end
 
@@ -115,7 +116,7 @@ module Pod
 
       # Parse a string line to a hash.
       def parse_line(line)
-        line.strip!
+        line = line.strip
         raise PodfileGeneratorInformative, line if not line =~ /^.+:.+$/
         pod_name, pod_version = line.split(":")
         Hash[pod_name.to_sym, pod_version]

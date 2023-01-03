@@ -5,8 +5,6 @@ module Pod
   PODS = { 
     "Firebase": "10.0.0",
     "FBSDKCoreKit": "15.0.0",
-    "FBSDKLoginKit": "15.0.0",
-    "FBSDKShareKit": "15.0.0",
   }
 
   describe Command::Podfile do
@@ -27,33 +25,16 @@ module Pod
             .should.not.raise()
         end
 
-        it "parses a file correctly" do
-          lambda { Command.parse(%W{ podfile --#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}=./spec/Pods.txt }).validate! }
-            .should.not.raise()
-        end
-
         it "fails when no pods are given" do
           lambda { Command.parse(%W{ podfile }).validate! }
             .should.raise(CLAide::Help)
             .message.should.match(/You must give a Pod argument/)
         end
-  
+
         it "fails when a bad Pod argument is given" do
           lambda { Command.parse(%W{ podfile #{PODS.keys.first}:#{PODS.values.first} #{PODS.keys.last}: }).validate! }
             .should.raise(CLAide::Help)
             .message.should.match(/There was a problem parsing the argument/)
-        end
-  
-        it "fails when the text file given does not exist" do
-          lambda { Command.parse(%W{ podfile --#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}=./spec/Non_existing_file.txt }).validate! }
-            .should.raise(CLAide::Help)
-            .message.should.match(/The file was not found/)
-        end
-
-        it "fails when there's a bad line to parse in a text file" do
-          lambda { Command.parse(%W{ podfile --#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}=./spec/Bad_Pods_Format.txt }).validate! }
-            .should.raise(CLAide::Help)
-            .message.should.match(/There was a problem parsing the line/)
         end
 
         it "fails when a Pod as an argument does not exist" do
@@ -62,14 +43,39 @@ module Pod
             .message.should.match(/There was a problem/)
         end
 
-        it "fails when a Pod in a file does not exist" do
-          lambda { Command.parse(%W{ podfile --#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}=./spec/Non_Existing_Pod.txt }).validate! }
-            .should.raise(PodfileGeneratorInformative)
-            .message.should.match(/There was a problem/)
+        describe "Validate text files" do
+          it "fails when the text file given does not exist" do
+            lambda { Command.parse(%W{ podfile --#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}=./spec/Non_existing_file.txt }).validate! }
+              .should.raise(CLAide::Help)
+              .message.should.match(/The file was not found/)
+          end
+
+          it "parses a text file correctly" do
+            lambda { Command.parse(%W{ podfile --#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}=./spec/Pods.txt }).validate! }
+              .should.not.raise()
+          end
+    
+          it "fails when there's a bad line to parse in a text file" do
+            lambda { Command.parse(%W{ podfile --#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}=./spec/Bad_Pods_Format.txt }).validate! }
+              .should.raise(CLAide::Help)
+              .message.should.match(/There was a problem parsing/)
+          end
+
+          it "fails when a text file does not have the .txt extension" do
+            lambda { Command.parse(%W{ podfile --#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}=./spec/TextFile }).validate! }
+              .should.raise(CLAide::Help)
+              .message.should.match(/should have a .txt extension./)
+          end
+          
+          it "fails when a Pod in a text file does not exist" do
+            lambda { Command.parse(%W{ podfile --#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}=./spec/Non_Existing_Pod.txt }).validate! }
+              .should.raise(PodfileGeneratorInformative)
+              .message.should.match(/There was a problem/)
+          end
         end
       end
 
-      describe "Test the command" do
+      describe "Test using only Pods as args" do
         require 'pathname'
         
         before do
@@ -233,7 +239,7 @@ module Pod
           podfile = Command.parse([
             "podfile",
             *pod_args,
-            "--#{CocoapodsPodfileGenerator::INCLUDE_ANALYZE}",
+            "--#{CocoapodsPodfileGenerator::INCLUDE_ANALYZE_FLAG_NAME}",
             "--#{CocoapodsPodfileGenerator::OUTPUT_OPTION_NAME}=#{@podfile_pathname}"])
           podfile.validate!
           podfile.run
@@ -247,7 +253,7 @@ module Pod
             "podfile",
             *pod_args,
             "--#{CocoapodsPodfileGenerator::INCLUDE_ALL_SUBSPECS_FLAG_NAME}",
-            "--#{CocoapodsPodfileGenerator::INCLUDE_ANALYZE}",
+            "--#{CocoapodsPodfileGenerator::INCLUDE_ANALYZE_FLAG_NAME}",
             "--#{CocoapodsPodfileGenerator::OUTPUT_OPTION_NAME}=#{@podfile_pathname}"])
           podfile.validate!
           podfile.run
@@ -261,7 +267,7 @@ module Pod
             "podfile",
             *pod_args,
             "--#{CocoapodsPodfileGenerator::INCLUDE_ALL_SUBSPECS_FLAG_NAME}",
-            "--#{CocoapodsPodfileGenerator::INCLUDE_ANALYZE}",
+            "--#{CocoapodsPodfileGenerator::INCLUDE_ANALYZE_FLAG_NAME}",
             "--#{CocoapodsPodfileGenerator::PLATFORMS_OPTION_NAME}=ios,tvos",
             "--#{CocoapodsPodfileGenerator::OUTPUT_OPTION_NAME}=#{@podfile_pathname}"])
           podfile.validate!
@@ -273,4 +279,3 @@ module Pod
     end
   end
 end
-

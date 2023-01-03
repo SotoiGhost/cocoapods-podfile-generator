@@ -8,8 +8,8 @@ Gem::Specification.new do |spec|
   spec.version       = CocoapodsPodfileGenerator::VERSION
   spec.authors       = ['Israel Soto']
   spec.email         = ['israel.spgh@gmail.com']
-  spec.description   = %q{A short description of cocoapods-podfile-generator.}
-  spec.summary       = %q{A longer description of cocoapods-podfile-generator.}
+  spec.summary       = CocoapodsPodfileGenerator::SUMMARY
+  spec.description   = CocoapodsPodfileGenerator::DESCRIPTION
   spec.homepage      = 'https://github.com/EXAMPLE/cocoapods-podfile-generator'
   spec.license       = 'MIT'
 
