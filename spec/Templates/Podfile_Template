@@ -1,0 +1,20 @@
+install! 'cocoapods', integrate_targets: false, generate_multiple_pod_projects: true
+use_frameworks!
+
+pre_install do |installer|
+	installer.pod_targets.each do |pod|
+	puts "Forcing a static_framework to false for #{pod.name}"
+		if Pod::VERSION >= "1.7.0"
+			if pod.build_as_static?
+				def pod.build_as_static?; false end
+				def pod.build_as_static_framework?; false end
+				def pod.build_as_dynamic?; true end
+				def pod.build_as_dynamic_framework?; true end
+			end
+		else
+			def pod.static_framework?; false end
+		end
+	end
+end
+
+{{CPG}}

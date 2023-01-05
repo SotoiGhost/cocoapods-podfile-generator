@@ -13,7 +13,7 @@ module Pod
         Command.parse(%w{ podfile }).should.be.instance_of Command::Podfile
       end
 
-      describe "Validate the command" do
+      describe "Validate the basics" do
         it "is well-formed" do
           lambda { Command.parse(%W{ podfile #{PODS.keys.first}:#{PODS.values.first} }).validate! }
             .should.not.raise()
@@ -42,40 +42,59 @@ module Pod
             .should.raise(PodfileGeneratorInformative)
             .message.should.match(/There was a problem/)
         end
+      end
 
-        describe "Validate text files" do
-          it "fails when the text file given does not exist" do
-            lambda { Command.parse(%W{ podfile --#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}=./spec/Non_existing_file.txt }).validate! }
-              .should.raise(CLAide::Help)
-              .message.should.match(/The file was not found/)
-          end
+      describe "Validate the text file" do
+        it "fails when the text file given does not exist" do
+          lambda { Command.parse(%W{ podfile --#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}=./spec/TextFiles/Non_existing_file.txt }).validate! }
+            .should.raise(CLAide::Help)
+            .message.should.match(/The file was not found/)
+        end
 
-          it "parses a text file correctly" do
-            lambda { Command.parse(%W{ podfile --#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}=./spec/Pods.txt }).validate! }
-              .should.not.raise()
-          end
-    
-          it "fails when there's a bad line to parse in a text file" do
-            lambda { Command.parse(%W{ podfile --#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}=./spec/Bad_Pods_Format.txt }).validate! }
-              .should.raise(CLAide::Help)
-              .message.should.match(/There was a problem parsing/)
-          end
+        it "parses a text file correctly" do
+          lambda { Command.parse(%W{ podfile --#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}=./spec/TextFiles/Pods.txt }).validate! }
+            .should.not.raise()
+        end
+  
+        it "fails when there's a bad line to parse in a text file" do
+          lambda { Command.parse(%W{ podfile --#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}=./spec/TextFiles/Bad_Pods_Format.txt }).validate! }
+            .should.raise(CLAide::Help)
+            .message.should.match(/There was a problem parsing/)
+        end
 
-          it "fails when a text file does not have the .txt extension" do
-            lambda { Command.parse(%W{ podfile --#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}=./spec/TextFile }).validate! }
-              .should.raise(CLAide::Help)
-              .message.should.match(/should have a .txt extension./)
-          end
-          
-          it "fails when a Pod in a text file does not exist" do
-            lambda { Command.parse(%W{ podfile --#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}=./spec/Non_Existing_Pod.txt }).validate! }
-              .should.raise(PodfileGeneratorInformative)
-              .message.should.match(/There was a problem/)
-          end
+        it "fails when a text file does not have the .txt extension" do
+          lambda { Command.parse(%W{ podfile --#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}=./spec/TextFiles/TextFile }).validate! }
+            .should.raise(CLAide::Help)
+            .message.should.match(/should have a .txt extension./)
+        end
+        
+        it "fails when a Pod in a text file does not exist" do
+          lambda { Command.parse(%W{ podfile --#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}=./spec/TextFiles/Non_Existing_Pod.txt }).validate! }
+            .should.raise(PodfileGeneratorInformative)
+            .message.should.match(/There was a problem/)
         end
       end
 
-      describe "Test using only Pods as args" do
+      describe "Validate the template file" do
+        it "fails when the template given does not exist" do
+          lambda { Command.parse(%W{ podfile #{PODS.keys.first}:#{PODS.values.first} --#{CocoapodsPodfileGenerator::TEMPLATE_OPTION_NAME}=./spec/Templates/Non_existing_template }).validate! }
+            .should.raise(CLAide::Help)
+            .message.should.match(/The template was not found/)
+        end
+
+        it "fails when the template does not contain the keyword" do
+          lambda { Command.parse(%W{ podfile #{PODS.keys.first}:#{PODS.values.first} --#{CocoapodsPodfileGenerator::TEMPLATE_OPTION_NAME}=./spec/Templates/Invalid_Template }).validate! }
+            .should.raise(CLAide::Help)
+            .message.should.match(/The template does not contain/)
+        end
+
+        it "is a valid template" do
+          lambda { Command.parse(%W{ podfile #{PODS.keys.first}:#{PODS.values.first} --#{CocoapodsPodfileGenerator::TEMPLATE_OPTION_NAME}=./spec/Templates/Podfile_Template }).validate! }
+            .should.not.raise
+        end
+      end
+
+      describe "Validate the functionality" do
         require 'pathname'
         
         before do
@@ -120,7 +139,7 @@ module Pod
         end
 
         it "generates the Podfile from a text file at the default path" do
-          podfile = Command.parse(%W{ podfile --#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}=./spec/Pods.txt })
+          podfile = Command.parse(%W{ podfile --#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}=./spec/TextFiles/Pods.txt })
           podfile.validate!
           podfile.run
           @default_podfile_pathname.exist?.should.be.true?
@@ -128,7 +147,7 @@ module Pod
         end
 
         it "generates the Podfile from a text file at a custom path" do
-          podfile = Command.parse(%W{ podfile --#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}=./spec/Pods.txt --#{CocoapodsPodfileGenerator::OUTPUT_OPTION_NAME}=#{@podfile_pathname} })
+          podfile = Command.parse(%W{ podfile --#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}=./spec/TextFiles/Pods.txt --#{CocoapodsPodfileGenerator::OUTPUT_OPTION_NAME}=#{@podfile_pathname} })
           podfile.validate!
           podfile.run
           @podfile_pathname.exist?.should.be.true?
@@ -140,7 +159,7 @@ module Pod
           podfile = Command.parse([
             "podfile", 
             *pod_args, 
-            "--#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}=./spec/Pods.txt"
+            "--#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}=./spec/TextFiles/Pods.txt"
           ])
           podfile.validate!
           podfile.run
@@ -153,7 +172,7 @@ module Pod
           podfile = Command.parse([
             "podfile",
             *pod_args,
-            "--#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}=./spec/Pods.txt",
+            "--#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}=./spec/TextFiles/Pods.txt",
             "--#{CocoapodsPodfileGenerator::OUTPUT_OPTION_NAME}=#{@podfile_pathname}"
           ])
           podfile.validate!
@@ -168,7 +187,7 @@ module Pod
             "podfile",
             *pod_args,
             "--#{CocoapodsPodfileGenerator::INCLUDE_DEFAULT_SUBSPECS_FLAG_NAME}",
-            "--#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}=./spec/Pods.txt",
+            "--#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}=./spec/TextFiles/Pods.txt",
             "--#{CocoapodsPodfileGenerator::OUTPUT_OPTION_NAME}=#{@podfile_pathname}"
           ])
           podfile.validate!
@@ -183,7 +202,7 @@ module Pod
             "podfile",
             *pod_args,
             "--#{CocoapodsPodfileGenerator::INCLUDE_ALL_SUBSPECS_FLAG_NAME}",
-            "--#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}=./spec/Pods.txt",
+            "--#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}=./spec/TextFiles/Pods.txt",
             "--#{CocoapodsPodfileGenerator::OUTPUT_OPTION_NAME}=#{@podfile_pathname}"
           ])
           podfile.validate!
@@ -199,7 +218,7 @@ module Pod
             *pod_args,
             "--#{CocoapodsPodfileGenerator::INCLUDE_DEFAULT_SUBSPECS_FLAG_NAME}",
             "--#{CocoapodsPodfileGenerator::INCLUDE_ALL_SUBSPECS_FLAG_NAME}",
-            "--#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}=./spec/Pods.txt",
+            "--#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}=./spec/TextFiles/Pods.txt",
             "--#{CocoapodsPodfileGenerator::OUTPUT_OPTION_NAME}=#{@podfile_pathname}"])
           podfile.validate!
           podfile.run
@@ -270,6 +289,21 @@ module Pod
             "--#{CocoapodsPodfileGenerator::INCLUDE_ANALYZE_FLAG_NAME}",
             "--#{CocoapodsPodfileGenerator::PLATFORMS_OPTION_NAME}=ios,tvos",
             "--#{CocoapodsPodfileGenerator::OUTPUT_OPTION_NAME}=#{@podfile_pathname}"])
+          podfile.validate!
+          podfile.run
+          @podfile_pathname.exist?.should.be.true?
+          @podfile_pathname.empty?.should.be.false?
+        end
+
+        it "generates the Podfile using a template" do
+          pod_args = PODS.keys.map { |key| "#{key}:#{PODS[key]}" }
+          podfile = Command.parse([
+            "podfile",
+            *pod_args,
+            "--#{CocoapodsPodfileGenerator::INCLUDE_ALL_SUBSPECS_FLAG_NAME}",
+            "--#{CocoapodsPodfileGenerator::TEMPLATE_OPTION_NAME}=./spec/Templates/Podfile_Template",
+            "--#{CocoapodsPodfileGenerator::OUTPUT_OPTION_NAME}=#{@podfile_pathname}"
+          ])
           podfile.validate!
           podfile.run
           @podfile_pathname.exist?.should.be.true?
