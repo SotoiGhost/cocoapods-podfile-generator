@@ -37,6 +37,7 @@ module Pod
           ["--#{CocoapodsPodfileGenerator::INCLUDE_DEFAULT_SUBSPECS_FLAG_NAME}", "Include the `default_subspecs` values in the Podfile if any."],
           ["--#{CocoapodsPodfileGenerator::INCLUDE_ALL_SUBSPECS_FLAG_NAME}", "Include all the subspecs in the Podfile if any."],
           ["--#{CocoapodsPodfileGenerator::INCLUDE_ANALYZE_FLAG_NAME}", "Let cocoapods resolve the necessary dependencies for the provided pods and include them in the Podfile."],
+          ["--#{CocoapodsPodfileGenerator::TEMPLATE_OPTION_NAME}", "A Podfile file to be used as the template for the final Podfile. Add the \"#{CocoapodsPodfileGenerator::TEMPLATE_KEYWORD}\" keyword (without quotes) somewhere within your template and that will be replaced with the generated targets. Example: --#{CocoapodsPodfileGenerator::TEMPLATE_OPTION_NAME}=path/to/template_file"],
           ["--#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}", "A text file containing the pods to add to the Podfile. Each row within the file should have the format: <POD_NAME>:<POD_VERSION>. Example: --#{CocoapodsPodfileGenerator::FILE_OPTION_NAME}=path/to/file.txt"],
           ["--#{CocoapodsPodfileGenerator::PLATFORMS_OPTION_NAME}", "Platforms to consider. If not set, all platforms supported by the pods will be used. A target will be generated per platform. Example: --#{CocoapodsPodfileGenerator::PLATFORMS_OPTION_NAME}=ios,tvos"],
           ["--#{CocoapodsPodfileGenerator::OUTPUT_OPTION_NAME}", "Path where the Podfile will be saved. If not set, the Podfile will be saved where the command is running. Example: --#{CocoapodsPodfileGenerator::OUTPUT_OPTION_NAME}=path/to/save/Podfile_name"],
@@ -52,6 +53,7 @@ module Pod
         @include_default_subspecs = argv.flag?(CocoapodsPodfileGenerator::INCLUDE_DEFAULT_SUBSPECS_FLAG_NAME)
         @include_all_subspecs = argv.flag?(CocoapodsPodfileGenerator::INCLUDE_ALL_SUBSPECS_FLAG_NAME)
         @include_analyze = argv.flag?(CocoapodsPodfileGenerator::INCLUDE_ANALYZE_FLAG_NAME)
+        @template_file = argv.option(CocoapodsPodfileGenerator::TEMPLATE_OPTION_NAME)
         @pods_text_file = argv.option(CocoapodsPodfileGenerator::FILE_OPTION_NAME)
         @platforms = argv.option(CocoapodsPodfileGenerator::PLATFORMS_OPTION_NAME, "").split(",")
         @podfile_output_path = argv.option(CocoapodsPodfileGenerator::OUTPUT_OPTION_NAME, "#{Dir.pwd}/Podfile")
@@ -62,6 +64,12 @@ module Pod
         super
         help! "You must give a Pod argument or pass a path to a text file to parse the Pods." if @pods_args.empty? && @pods_text_file.nil?
         
+        # Validate the template
+        if @template_file
+          help! "The template was not found at #{@template_file}." if not File.exist?(@template_file)
+          help! "The template does not contain the #{CocoapodsPodfileGenerator::TEMPLATE_KEYWORD} keyword. Add the keyword somewhere within your template." if not File.open(@template_file).each_line.any?{ |line| line.include?(CocoapodsPodfileGenerator::TEMPLATE_KEYWORD) }
+        end
+
         # Parse each argument passed if any
         begin
           @pods_args.each { |pod| @pods.merge!(parse_line(pod)) } if not @pods_args.empty?
@@ -109,7 +117,11 @@ module Pod
           specs_by_platform = get_specs_by_platform(specs)
         end
 
-        generate_podfile_file(specs_by_platform, @podfile_output_path)
+        if @template_file
+          generate_podfile_using_template(@template_file, specs_by_platform, @podfile_output_path)
+        else
+          generate_podfile_file(specs_by_platform, @podfile_output_path)
+        end
       end
 
       private
@@ -217,24 +229,40 @@ module Pod
       end
 
       def generate_podfile_file(specs_by_platform, path)
-        podfile = "install! 'cocoapods', integrate_targets: false\n"
-        podfile += "use_frameworks!\n"
+        podfile_pathname = Pathname.new(path)
+        podfile_pathname.dirname.mkpath
+        podfile_pathname.open("a") do |file|
+          file.write("install! 'cocoapods', integrate_targets: false\n")
+          file.write("use_frameworks!\n\n")
+          file.write(generate_targets(specs_by_platform))
+        end
+      end
 
+      def generate_podfile_using_template(template_file, specs_by_platform, path)
+        podfile_pathname = Pathname.new(path)
+        podfile_pathname.dirname.mkpath
+        podfile_pathname.open("a") do |file|
+          File.open(@template_file).each_line do |line|
+            l = line.include?(CocoapodsPodfileGenerator::TEMPLATE_KEYWORD) ? generate_targets(specs_by_platform) : line
+            file.write(l)
+          end
+        end
+      end
+
+      def generate_targets(specs_by_platform)
+        targets = ""
         @platforms.each do |platform|
           next if specs_by_platform[platform.name].empty?
 
           platform_version = specs_by_platform[platform.name].map { |spec| Pod::Version.new(spec.deployment_target(platform.name) || "0") }
           platform_version = platform_version.max
 
-          podfile += "\ntarget 'Target_for_#{platform.name}' do\n"
-          podfile += "\tplatform :#{platform.name}, '#{platform_version}'\n"
-          specs_by_platform[platform.name].each { |spec| podfile += "\tpod '#{spec.name}', '#{spec.version}'\n" }
-          podfile += "end\n"
+          targets += "target 'Target_for_#{platform.name}' do\n"
+          targets += "\tplatform :#{platform.name}, '#{platform_version}'\n"
+          specs_by_platform[platform.name].each { |spec| targets += "\tpod '#{spec.name}', '#{spec.version}'\n" }
+          targets += "end\n\n"
         end
-        
-        podfile_pathname = Pathname.new(path)
-        podfile_pathname.dirname.mkpath
-        podfile_pathname.write(podfile)
+        targets
       end
     end
   end

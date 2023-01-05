@@ -1,5 +1,5 @@
 module CocoapodsPodfileGenerator
-  VERSION = "0.4.1"
+  VERSION = "0.5.0"
   SUMMARY = "A Cocoapods plugin to generate a Podfile file with the pods provided."
   DESCRIPTION = <<-DESC
     A Cocoapods plugin that helps you generate a Podfile file with the pods provided. 
@@ -24,7 +24,11 @@ module CocoapodsPodfileGenerator
   INCLUDE_ANALYZE_FLAG_NAME = "include-analyze"
   
   # CLAide Options
-  FILE_OPTION_NAME = "file"
+  TEMPLATE_OPTION_NAME = "template"
+  FILE_OPTION_NAME = "text-file"
   PLATFORMS_OPTION_NAME = "platforms"
   OUTPUT_OPTION_NAME = "output"
+
+  # Misc
+  TEMPLATE_KEYWORD = "{{CPG}}"
 end
